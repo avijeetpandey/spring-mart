@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: spring-mart-postgres
+    environment:
+      POSTGRES_DB: spring_mart
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+  redis-cache:
+    image: redis:alpine
+    container_name: spring-mart-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+  # 3. Your Spring Boot Application
+  spring-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    container_name: spring-mart-backend
+    ports:
+      - "9000:9000"
+      - "5005:5005"
+    volumes:
+      - .:/app
+      - ~/.m2:/root/.m2
+    command: mvn spring-boot:run -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    depends_on:
+      - postgres-db
+      - redis-cache
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://spring-mart-postgres:5432/spring_mart
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATA_REDIS_HOST: redis-cache
+      SPRING_DATA_REDIS_PORT: 6379
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
